@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+pdfplumber
+python-docx
+anthropic
+openai
+pydantic
+pydantic-settings
+python-multipart
+slowapi
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
+supabase
+python-jose[cryptography]
