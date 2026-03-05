@@ -24,12 +24,12 @@ supabase_key = os.getenv("SUPABASE_ANON_KEY")
 app = FastAPI(title="AI Resume Analyzer API", version="1.0")
 
 # CORS Configuration
-# In production, set ALLOWED_ORIGINS to your domain (e.g. https://career.io)
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+allowed_origins = [o.strip() for o in allowed_origins if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=allowed_origins if allowed_origins else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

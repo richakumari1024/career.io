@@ -20,7 +20,7 @@ async def parse_resume(file: UploadFile) -> str:
     filename = file.filename.lower()
     
     # Save temporary file
-    temp_path = f"temp_{filename}"
+    temp_path = f"/tmp/temp_{filename}"
     with open(temp_path, "wb") as f:
         f.write(content)
         
