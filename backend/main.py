@@ -27,10 +27,14 @@ app = FastAPI(title="AI Resume Analyzer API", version="1.0")
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 allowed_origins = [o.strip() for o in allowed_origins if o.strip()]
 
+# Security Rule: allow_credentials=True cannot be used with ["*"]
+# We use Bearer tokens (headers), not cookies, so allow_credentials=False is safer for "*"
+is_wildcard = "*" in allowed_origins
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins if allowed_origins else ["*"],
-    allow_credentials=True,
+    allow_credentials=not is_wildcard,
     allow_methods=["*"],
     allow_headers=["*"],
 )
