@@ -19,8 +19,10 @@ async def parse_resume(file: UploadFile) -> str:
     content = await file.read()
     filename = file.filename.lower()
     
-    # Save temporary file
-    temp_path = f"/tmp/temp_{filename}"
+    import uuid
+    # Save temporary file with a safe name
+    temp_filename = f"temp_{uuid.uuid4().hex}_{filename[-10:]}"
+    temp_path = f"/tmp/{temp_filename}"
     with open(temp_path, "wb") as f:
         f.write(content)
         

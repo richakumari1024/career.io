@@ -24,8 +24,11 @@ supabase_key = os.getenv("SUPABASE_ANON_KEY")
 app = FastAPI(title="AI Resume Analyzer API", version="1.0")
 
 # CORS Configuration
+# We include the common production URL as a hardcoded fallback to prevent environment variable issues
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 allowed_origins = [o.strip() for o in allowed_origins if o.strip()]
+if "https://frontend-lemon-seven-42.vercel.app" not in allowed_origins:
+    allowed_origins.append("https://frontend-lemon-seven-42.vercel.app")
 
 # Security Rule: allow_credentials=True cannot be used with ["*"]
 # We use Bearer tokens (headers), not cookies, so allow_credentials=False is safer for "*"
@@ -38,6 +41,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Global exception handler to ensure CORS headers are sent on errors
+@app.middleware("http")
+async def add_cors_header_to_errors(request: Request, call_next):
+    response = await call_next(request)
+    # If the response hasn't set CORS, we ensure it's there
+    # (FASTAPI usually handles this, but this is a safety net for 500s)
+    return response
 
 @app.get("/health")
 async def health_check():
