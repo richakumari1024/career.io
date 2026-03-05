@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Supabase JWT settings
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET") # In Supabase: Settings -> API -> JWT Secret
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET") or os.getenv("JWT_SECRET_KEY") # In Supabase: Settings -> API -> JWT Secret
 SUPABASE_ALGORITHM = "HS256"
 
 async def get_current_user(request: Request):
