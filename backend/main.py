@@ -8,6 +8,9 @@ from core.auth import get_current_user
 import httpx
 import os
 import json
+import traceback
+from fastapi import Request
+from fastapi.responses import JSONResponse
 
 # Configure logging
 logging.basicConfig(
@@ -18,8 +21,11 @@ logging.basicConfig(
 logger = logging.getLogger("api")
 
 # Supabase configuration
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_ANON_KEY")
+supabase_url = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_ANON_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+
+if not supabase_url or not supabase_key:
+    logger.warning("Supabase URL or Key not found in environment variables!")
 
 app = FastAPI(title="AI Resume Analyzer API", version="1.0")
 
@@ -31,7 +37,6 @@ if "https://frontend-lemon-seven-42.vercel.app" not in allowed_origins:
     allowed_origins.append("https://frontend-lemon-seven-42.vercel.app")
 
 # Security Rule: allow_credentials=True cannot be used with ["*"]
-# We use Bearer tokens (headers), not cookies, so allow_credentials=False is safer for "*"
 is_wildcard = "*" in allowed_origins
 
 app.add_middleware(
@@ -42,12 +47,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global exception handler to ensure CORS headers are sent on errors
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    error_detail = f"{type(exc).__name__}: {str(exc)}"
+    logger.error(f"Global exception: {error_detail}\n{traceback.format_exc()}")
+    
+    # Return JSON even on crash with CORS headers
+    headers = {
+        "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*",
+    }
+    if not is_wildcard:
+        headers["Access-Control-Allow-Credentials"] = "true"
+        
+    return JSONResponse(
+        status_code=500,
+        content={"detail": error_detail, "error_type": type(exc).__name__},
+        headers=headers
+    )
+
 @app.middleware("http")
-async def add_cors_header_to_errors(request: Request, call_next):
+async def add_process_time_header(request: Request, call_next):
+    # Simply log the request for debugging
+    logger.info(f"Request: {request.method} {request.url.path}")
     response = await call_next(request)
-    # If the response hasn't set CORS, we ensure it's there
-    # (FASTAPI usually handles this, but this is a safety net for 500s)
     return response
 
 @app.get("/health")
@@ -56,11 +80,19 @@ async def health_check():
 
 @app.post("/parse-pdf", response_model=ParseResponse)
 async def parse_pdf_route(file: UploadFile = File(...)):
-    if not file.filename.endswith(('.pdf', '.docx', '.txt')):
-        raise HTTPException(status_code=400, detail="Unsupported file format")
-    
-    text = await parse_resume(file)
-    return {"text": text, "filename": file.filename, "page_count": 1}
+    try:
+        if not file.filename.lower().endswith(('.pdf', '.docx', '.txt')):
+            raise HTTPException(status_code=400, detail="Unsupported file format. Please upload PDF, DOCX, or TXT.")
+        
+        text = await parse_resume(file)
+        if not text or len(text.strip()) < 10:
+             logger.warning(f"Extracted text too short for {file.filename}")
+        
+        return {"text": text or "", "filename": file.filename, "page_count": 1}
+    except Exception as e:
+        logger.error(f"Parse error: {str(e)}")
+        # Re-raise to be caught by global handler
+        raise e
 
 @app.post("/analyze", response_model=AnalysisResponse)
 async def analyze_route(request: AnalysisRequest, user_id: str = Depends(get_current_user)):
