@@ -21,22 +21,27 @@ logging.basicConfig(
 logger = logging.getLogger("api")
 
 # Supabase configuration
-supabase_url = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_ANON_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+def get_env_stripped(key, default=None):
+    val = os.getenv(key, default)
+    if val:
+        # Handle cases where Vercel might add quotes or spaces or escapes
+        val = val.strip().strip('"').strip("'").replace("\\n", "\n")
+    return val
 
-if not supabase_url or not supabase_key:
-    logger.warning("Supabase URL or Key not found in environment variables!")
+supabase_url = get_env_stripped("SUPABASE_URL") or get_env_stripped("NEXT_PUBLIC_SUPABASE_URL")
+supabase_key = get_env_stripped("SUPABASE_ANON_KEY") or get_env_stripped("NEXT_PUBLIC_SUPABASE_ANON_KEY")
 
 app = FastAPI(title="AI Resume Analyzer API", version="1.0")
 
 # CORS Configuration
-# We include the common production URL as a hardcoded fallback to prevent environment variable issues
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
-allowed_origins = [o.strip() for o in allowed_origins if o.strip()]
-if "https://frontend-lemon-seven-42.vercel.app" not in allowed_origins:
-    allowed_origins.append("https://frontend-lemon-seven-42.vercel.app")
+allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+allowed_origins = [o.strip().strip('"').strip("'") for o in allowed_origins_raw if o.strip()]
 
-# Security Rule: allow_credentials=True cannot be used with ["*"]
+# Hardcode the known production frontend to ensure it's always allowed
+prod_frontend = "https://frontend-lemon-seven-42.vercel.app"
+if prod_frontend not in allowed_origins and "*" not in allowed_origins:
+    allowed_origins.append(prod_frontend)
+
 is_wildcard = "*" in allowed_origins
 
 app.add_middleware(
@@ -45,6 +50,7 @@ app.add_middleware(
     allow_credentials=not is_wildcard,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 @app.exception_handler(Exception)

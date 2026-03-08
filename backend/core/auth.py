@@ -8,7 +8,8 @@ logger = logging.getLogger("auth")
 load_dotenv()
 
 # Supabase JWT settings
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET") or os.getenv("JWT_SECRET_KEY")
+raw_secret = os.getenv("SUPABASE_JWT_SECRET") or os.getenv("JWT_SECRET_KEY")
+SUPABASE_JWT_SECRET = raw_secret.strip().strip('"').strip("'").replace("\\n", "\n") if raw_secret else None
 SUPABASE_ALGORITHM = "HS256"
 
 if not SUPABASE_JWT_SECRET:
