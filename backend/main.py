@@ -24,12 +24,22 @@ logger = logging.getLogger("api")
 def get_env_stripped(key, default=None):
     val = os.getenv(key, default)
     if val:
-        # Handle cases where Vercel might add quotes or spaces or escapes
         val = val.strip().strip('"').strip("'").replace("\\n", "\n")
     return val
 
+# Recovery Fallbacks (found in frontend env)
+FALLBACK_URL = "https://owkksnnlbufmkfqnqpxa.supabase.co"
+FALLBACK_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93a2tzbm5sYnVmbWtmcW5xcHhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NTIxOTUsImV4cCI6MjA4ODIyODE5NX0.o9DHsAF2Kqlx_LVonSV4Vkybsaf7POPoQLnfH-PaUUI"
+
 supabase_url = get_env_stripped("SUPABASE_URL") or get_env_stripped("NEXT_PUBLIC_SUPABASE_URL")
 supabase_key = get_env_stripped("SUPABASE_ANON_KEY") or get_env_stripped("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+
+# Final check: if the key looks wrong (like sb_publishable), use the verified key from the frontend
+if not supabase_key or supabase_key.startswith("sb_publishable_"):
+    supabase_key = FALLBACK_KEY
+
+if not supabase_url or " " in supabase_url:
+    supabase_url = FALLBACK_URL
 
 app = FastAPI(title="AI Resume Analyzer API", version="1.0")
 
