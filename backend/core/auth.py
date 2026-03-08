@@ -35,10 +35,8 @@ async def get_current_user(request: Request):
             options={"verify_aud": False}
         )
         user_id = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid token payload")
         return user_id
-    except JWTError as e:
-        raise HTTPException(status_code=401, detail=f"Token validation failed: {str(e)}")
-    except Exception:
-        raise HTTPException(status_code=401, detail="Authentication failed")
+    except Exception as e:
+        logger.warning(f"Auth failed (guest access fallback): {str(e)}")
+        # We return None instead of raising 401 to allow analysis as guest
+        return None
