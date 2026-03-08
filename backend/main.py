@@ -43,50 +43,59 @@ if not supabase_url or " " in supabase_url:
 
 app = FastAPI(title="AI Resume Analyzer API", version="1.0")
 
-# CORS Configuration
-allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "*").split(",")
-allowed_origins = [o.strip().strip('"').strip("'") for o in allowed_origins_raw if o.strip()]
+# Manual CORS Middleware (more reliable than built-in on some Vercel setups)
+@app.middleware("http")
+async def cors_middleware(request: Request, call_next):
+    if request.method == "OPTIONS":
+        response = JSONResponse(content="OK")
+    else:
+        response = await call_next(request)
+    
+    # Mirror the origin if it's our frontend or localhost
+    origin = request.headers.get("origin")
+    allowed_list = [
+        "https://frontend-lemon-seven-42.vercel.app",
+        "https://frontend-lemon-seven-42-git-main-richas-projects-90d3473f.vercel.app", # Vercel preview
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ]
+    
+    if origin in allowed_list or (origin and "vercel.app" in origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    elif not origin:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    else:
+        # Fallback to wildcard for safety during debug
+        response.headers["Access-Control-Allow-Origin"] = "*"
 
-# Hardcode the known production frontend to ensure it's always allowed
-prod_frontend = "https://frontend-lemon-seven-42.vercel.app"
-if prod_frontend not in allowed_origins and "*" not in allowed_origins:
-    allowed_origins.append(prod_frontend)
-
-is_wildcard = "*" in allowed_origins
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins if allowed_origins else ["*"],
-    allow_credentials=not is_wildcard,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-)
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, apikey"
+    response.headers["Access-Control-Expose-Headers"] = "*"
+    
+    return response
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     error_detail = f"{type(exc).__name__}: {str(exc)}"
     logger.error(f"Global exception: {error_detail}\n{traceback.format_exc()}")
     
-    # Return JSON even on crash with CORS headers
-    headers = {
-        "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
-        "Access-Control-Allow-Methods": "*",
-        "Access-Control-Allow-Headers": "*",
-    }
-    if not is_wildcard:
-        headers["Access-Control-Allow-Credentials"] = "true"
-        
-    return JSONResponse(
+    # We still want our manual CORS to apply, but since this is an exception handler,
+    # we have to set the headers manually here as well
+    response = JSONResponse(
         status_code=500,
-        content={"detail": error_detail, "error_type": type(exc).__name__},
-        headers=headers
+        content={"detail": error_detail, "error_type": type(exc).__name__}
     )
+    
+    origin = request.headers.get("origin", "*")
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
 
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    # Simply log the request for debugging
-    logger.info(f"Request: {request.method} {request.url.path}")
+async def add_logging_header(request: Request, call_next):
+    logger.info(f"Incoming: {request.method} {request.url.path}")
     response = await call_next(request)
     return response
 

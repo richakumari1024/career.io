@@ -2,19 +2,19 @@ import json
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from openai import OpenAI
+from openai import AsyncOpenAI
 from schemas import AnalysisResponse
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # OpenRouter configuration
-client = OpenAI(
+client = AsyncOpenAI(
   base_url="https://openrouter.ai/api/v1",
   api_key=os.getenv("OPENROUTER_API_KEY"),
   default_headers={
-    "HTTP-Referer": "http://localhost:3000", # Optional, for OpenRouter rankings
-    "X-Title": "Career.io Resume Analyzer", # Optional, for OpenRouter rankings
+    "HTTP-Referer": "https://frontend-lemon-seven-42.vercel.app",
+    "X-Title": "Career.io Resume Analyzer",
   }
 )
 
@@ -41,8 +41,8 @@ async def analyze_resume(resume_text: str, job_description: str) -> AnalysisResp
         prompt = f"Resume:\n{resume_text}\n\nJob Description:\n{job_description}"
         
         logger.info("Calling OpenRouter API (Step 3.5 Flash)")
-        # Removed response_format for better compatibility with all models
-        response = client.chat.completions.create(
+        # Fixed: using await for chat completion
+        response = await client.chat.completions.create(
             model="stepfun/step-3.5-flash:free",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
